@@ -1,6 +1,7 @@
 /** Bounded, escalating process shutdown for the long-lived CLI surfaces. */
 
-/** Maximum grace allowed for the application tree to dispose before process exit. */
+/** Maximum grace allowed for the application tree to dispose, and for the loop
+ * to drain afterwards, before process exit is forced. */
 export const PROCESS_SHUTDOWN_TIMEOUT_MS = 5_000
 
 /** Process-exit controller shared by normal completion and Unix signal handlers. */
@@ -45,13 +46,18 @@ export function createProcessShutdown(
   const completeOnce = (code: number): void => {
     if (completed || forceExited) return
     completed = true
-    clearExitTimeout()
+    // The grace timer stays armed. Disposing the tree does not guarantee every
+    // handle is released — a provider's keep-alive sockets outlive it — and a
+    // process that only records an exit code then waits for the loop to drain
+    // never returns to a non-interactive caller. The timer is unreferenced, so
+    // it cannot itself delay an exit that would otherwise happen naturally.
     complete(code)
   }
 
   const start = (code: number, forceAfterDispose: boolean): Promise<void> => {
     if (pending !== undefined) return pending
     timeout = setTimeout(() => { forceExitOnce(code) }, timeoutMs)
+    timeout.unref()
     pending = Promise.resolve().then(dispose).then(
       () => {
         if (forceAfterDispose) forceExitOnce(code)

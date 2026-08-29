@@ -164,6 +164,24 @@ describe('process shutdown', () => {
     expect(exit).not.toHaveBeenCalled()
   })
 
+  it('forces exit when the loop is still held after disposal resolves', async () => {
+    vi.useFakeTimers()
+    const exit = vi.fn()
+    const complete = vi.fn()
+    const shutdown = createProcessShutdown(() => Promise.resolve(), exit, complete)
+
+    await shutdown.shutdown(0)
+    expect(complete).toHaveBeenCalledWith(0)
+    expect(exit).not.toHaveBeenCalled()
+
+    // A handle the tree does not own — a provider keep-alive socket — keeps the
+    // loop alive past disposal. The grace timer is the only thing that returns
+    // control to a non-interactive caller.
+    vi.advanceTimersByTime(PROCESS_SHUTDOWN_TIMEOUT_MS)
+    expect(exit).toHaveBeenCalledOnce()
+    expect(exit).toHaveBeenCalledWith(0)
+  })
+
   it('lets a signal force exit while natural completion drains remaining handles', async () => {
     const exit = vi.fn()
     const complete = vi.fn()
