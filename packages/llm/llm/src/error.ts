@@ -86,6 +86,17 @@ export function isContextWindowExceededError(detail: string): boolean {
 }
 
 /**
+ * Terminal quota wording: the noun, any auxiliary verbs a provider puts between
+ * it and the verb ("the usage limit has been reached"), then the verb itself.
+ */
+const QUOTA_REACHED = new RegExp(
+  String.raw`\b(?:quota|usage[\s_-]+limit)`
+  + String.raw`(?:[\s_-]+(?:has|have|had|is|are|was|were|been|being))*`
+  + String.raw`[\s_-]+(?:exceeded|exhausted|reached)\b`,
+  'i',
+)
+
+/**
  * Recognize provider wording that identifies an exhausted account quota rather
  * than a transient request-rate limit.
  * @param detail - provider error code/type/message text joined into one string.
@@ -93,7 +104,7 @@ export function isContextWindowExceededError(detail: string): boolean {
  */
 export function isQuotaExceededError(detail: string): boolean {
   return /\binsufficient[\s_-]+(?:quota|balance|credits?)\b/i.test(detail)
-    || /\b(?:quota|usage[\s_-]+limit)[\s_-]+(?:exceeded|exhausted|reached)\b/i.test(detail)
+    || QUOTA_REACHED.test(detail)
     || /\bexceed(?:ed|s)?[\s_-]+(?:(?:your|the)[\s_-]+)?(?:current[\s_-]+)?quota\b/i.test(detail)
     || /\b(?:balance|credits?)[\s_-]+(?:exhausted|depleted)\b/i.test(detail)
     || /\bout[\s_-]+of[\s_-]+(?:credits?|budget)\b/i.test(detail)
